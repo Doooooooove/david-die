@@ -1,0 +1,7 @@
+DeepSeek whale mark reference
+
+The pixel silhouette WHALE in world.gd was sampled at 40 x 30 pixels from the whale path in the official DeepSeek-LLM logo.svg.
+Source: https://github.com/deepseek-ai/DeepSeek-LLM/blob/main/images/logo.svg
+Upstream file SHA: 425494404f7e63f4909667003097511217664579
+
+The DeepSeek name and logo belong to their respective owner. This birthday game is an independent personal project, with no affiliation or endorsement and no connection to DeepSeek services.

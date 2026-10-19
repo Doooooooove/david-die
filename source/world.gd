@@ -26,6 +26,39 @@ const COW = [
 	"....kkkkkkk.........", "....kk...kk.........", "....kk...kk.........", "....ww...ww.........",
 	"...kkkk.kkkk........"
 ]
+# Pixel silhouette sampled from DeepSeek-LLM/images/logo.svg (official whale mark).
+const WHALE = [
+	"...........................b............",
+	"................bbbbb......bb...........",
+	".......bbbbbbbbbbbbb.......bbb..........",
+	".....bbbbbbbbbbbbbbb.......bbbb.......bb",
+	"....bbbbbbbbbbbbbbbbb......bbbbb..bbbbbb",
+	"...bbbbbbbbbbbbbbbbbbb.....bbbbbbbbbbbbb",
+	"..bbbbbbbbbbbbbbbbbbbbb....bbbbbbbbbbbb.",
+	"..bbbbbbbbbbbbbbbbbbbbbb....bbbbbbbbbbb.",
+	".bbbbbbbbbbbbbbbbbbbbbbbb....bbbbbbbbb..",
+	".bbbbbbbbbbbbbbbbbbbbbbbbb....bbbbbb....",
+	"bbbbbbbbbbbbbbbbbbbbbbbbbbb...bbbb......",
+	"bbb......bbbbbbbbbbbbbbbbbbbbbbbbb......",
+	"bbb........bbbbbbbbbb..bbbbbbbbbbb......",
+	"bbb..........bbbbbbbbb...bbbbbbbb.......",
+	"bbb...........bbbbbbbbb..bbbbbbbb.......",
+	"bbb............bbbbbbbb...bbbbbbb.......",
+	"bbbb............bbbbbbb...bbbbbbb.......",
+	"bbbb.............bbbbbbbbbbbbbbb........",
+	".bbb.............bbbbbbbbbbbbbbb........",
+	".bbbb.............bbbbbbbbbbbbb.........",
+	".bbbbb.............bbbbbbbbbbbb.........",
+	"..bbbb.............bbbbbbbbbbb..........",
+	"..bbbbb......bb.....bbbbbbbbb...........",
+	"...bbbbb.....bbbb....bbbbbbb............",
+	"....bbbbb.....bbbb....bbbbbbb...........",
+	".....bbbbbbb.bbbbbb....bbbbbbbb.........",
+	"......bbbbbbbbbbbbbbbb.bbbbbbbbb........",
+	".......bbbbbbbbbbbbbbbbb....bb..........",
+	".........bbbbbbbbbbbbb..................",
+	"............bbbbbbbb...................."
+]
 
 func rect(x: float, y: float, w: float, h: float, color: Color) -> void:
 	draw_rect(Rect2(floorf(x), floorf(y), w, h), color)
@@ -46,6 +79,10 @@ func _draw() -> void:
 		draw_street()
 	elif scene in ["hospital", "ct"]:
 		draw_hospital()
+	elif scene == "route":
+		draw_route()
+	elif scene in ["darkroom", "illuminate", "birthday_reveal", "birthday", "parcel_opening", "ending"]:
+		draw_darkroom()
 	else:
 		draw_arena()
 	for stain in game.stains:
@@ -53,10 +90,21 @@ func _draw() -> void:
 	for wave in game.waves:
 		draw_arc(wave.p, wave.radius, 0, TAU, 52, Color("c27cbb"), 3)
 		draw_arc(wave.p, maxf(1, wave.radius - 4), 0, TAU, 52, Color("703b69"), 1)
-	if scene in ["fight", "dead", "letter_pickup", "letter", "ending", "dialogue"] and game.dialogue_next != "hospital":
+	for packet in game.red_packets:
+		draw_red_packet(packet)
+	if scene in ["fight", "dead", "letter_pickup", "letter", "aftermath", "dialogue"] and game.dialogue_next != "hospital":
 		if game.boss_hp > 0:
 			draw_tell()
-			draw_actor(game.boss, "cow" if game.boss_index == 3 else "agent", game.Story.BOSSES[game.boss_index].color, game.boss_phase == "approach", game.boss_flash > 0, game.boss.x > game.player.x)
+			if game.boss_index == game.COW_BOSS and game.boss_phase == "charge":
+				draw_line(game.boss, game.boss - game.boss_dir * 45, Color(0.95, 0.2, 0.24, 0.35), 19)
+				draw_line(game.boss, game.boss - game.boss_dir * 61, Color(0.95, 0.2, 0.24, 0.16), 10)
+			if game.boss_index == 1:
+				var airborne = game.boss_phase == "airborne"
+				var flight = clampf(1.0 - game.boss_timer, 0, 1) if airborne else 0.0
+				var ground = game.boss.lerp(game.boss_target, flight) if airborne else game.boss
+				draw_whale(ground, game.boss_flash > 0, sin(flight * PI) * 65)
+			else:
+				draw_actor(game.boss, "cow" if game.boss_index == game.COW_BOSS else "agent", game.Story.BOSSES[game.boss_index].color, game.boss_phase == "approach", game.boss_flash > 0, game.boss.x > game.player.x)
 			if game.boss_phase == "recover":
 				rect(game.boss.x - 2, game.boss.y - 36, 4, 4, GOLD)
 		else:
@@ -66,21 +114,35 @@ func _draw() -> void:
 	else:
 		if not (game.invulnerable > 0 and int(game.clock * 18) % 2 == 0):
 			draw_actor(game.player, "player", "e5c365", game.move_dir.length() > 0, game.hurt_flash > 0, game.facing.x < 0)
+	if scene in ["beach", "fishing", "fished"]:
+		draw_fishing(scene)
 	if game.slash_time > 0 and scene == "fight":
 		var angle = game.facing.angle()
 		var center = game.player - Vector2(0, 10)
-		draw_arc(center, 31, angle - 0.95, angle + 0.95, 12, GOLD, 4)
-		draw_arc(center, 36, angle - 0.75, angle + 0.75, 12, Color("f1edc7"), 2)
+		var radius = 42 if game.combo_step == 3 else 31
+		draw_arc(center, radius, angle - 0.95, angle + 0.95, 12, GOLD, 6 if game.combo_step == 3 else 4)
+		draw_arc(center, radius + 5, angle - 0.75, angle + 0.75, 12, Color("f1edc7"), 2)
 	for shot in game.projectiles:
 		draw_line(shot.p, shot.p - shot.v.normalized() * 8, Color("b04b54"), 3)
 		rect(shot.p.x - 2, shot.p.y - 2, 4, 4, GOLD)
 	for particle in game.particles:
-		if particle.get("ring", false):
-			draw_arc(particle.p, (0.26 - particle.life) * 200, 0, TAU, 24, RED, 3)
+		if particle.has("text"):
+			label(particle.text, particle.p.x + 1, particle.p.y + 1, 9, INK)
+			label(particle.text, particle.p.x, particle.p.y, 9, particle.color)
+		elif particle.get("ring", false):
+			draw_arc(particle.p, (0.26 - particle.life) * 200, 0, TAU, 24, particle.color, 3)
 		else:
 			rect(particle.p.x, particle.p.y, 2, 2, particle.color)
+	if scene == "route":
+		prompt(game.ROUTE_EXIT, "E 进入档案室" if game.boss_index == 1 else "E 进入 04 号仓库")
+	if scene == "birthday" and not game.parcel_opened:
+		prompt(game.BIRTHDAY_PARCEL, "E 打开快递")
 	if scene == "letter_pickup":
 		draw_letter_drop()
+	if scene == "aftermath":
+		prompt(game.DARK_DOOR, "E 进入暗室")
+	if scene == "darkroom":
+		prompt(game.LETTER_TABLE if game.has_special_light else game.LIGHT_STAND, "E 放下信" if game.has_special_light else "E 拿起特殊光源")
 	if scene == "street" and game.pad_dropped and not game.pad_fixed:
 		draw_pad_drop()
 	if scene == "hospital":
@@ -97,6 +159,9 @@ func draw_actor(pos: Vector2, kind: String, coat: String, walking = false, flash
 	var colors = {"h": Color("24222d"), "s": Color("d5a58b"), "g": Color("181c26"), "r": Color("b84750"), "y": GOLD, "k": Color("262b37"), "c": Color(coat), "b": Color("bdb09a"), "w": Color("e0e4d5"), "p": Color("bd9291")}
 	if kind == "player":
 		colors.g = Color("7cc5c5")
+	if kind == "cow" and game.boss_phase == "charge":
+		colors.w = Color("f06462")
+		colors.p = Color("cf434b")
 	draw_ellipse_shadow(pos, 13 if kind == "cow" else 10)
 	draw_set_transform(pos.round() + Vector2(0, step), rotation_angle, Vector2(1.5, 1.5))
 	var width = rows[0].length()
@@ -107,7 +172,8 @@ func draw_actor(pos: Vector2, kind: String, coat: String, walking = false, flash
 			var px = width - x - 1 if flip else x
 			var leg_offset = step if y > rows.size() - 6 and x < width / 2 else 0
 			rect(px - width / 2, y - rows.size() - leg_offset, 1, 1, Color("f2eacc") if flash else colors[pixel])
-	if kind == "player" and game.state != "ct":
+	var scene = game.previous_state if game.state == "paused" else game.state
+	if kind == "player" and scene not in ["ct", "beach", "fishing", "fished", "darkroom", "illuminate", "birthday_reveal", "birthday", "parcel_opening", "ending"]:
 		var side = -1 if flip else 1
 		rect(side * 8, -15, 2, 13, Color("cbd8d3"))
 		rect(side * 8 - 2, -7, 6, 2, GOLD)
@@ -119,10 +185,12 @@ func draw_ellipse_shadow(pos: Vector2, width: float) -> void:
 	rect(pos.x - width + 3, pos.y - 4, width * 2 - 6, 7, Color(0.02, 0.025, 0.04, 0.25))
 
 func draw_arena() -> void:
+	if game.boss_index == 1:
+		draw_beach()
+		return
 	var palettes = [
 		["211f27", "302c32", "3b3034", "876349"],
 		["182833", "243945", "26333f", "4b7380"],
-		["272331", "35303e", "383242", "766479"],
 		["1f302e", "2b3d3b", "33423e", "688f81"],
 		["301e2a", "3f2c35", "422c35", "9d5c63"]
 	]
@@ -146,10 +214,13 @@ func draw_arena() -> void:
 	for x in [79, 404]: rect(x, 116, 1, 100, Color(pal[3]).darkened(0.4))
 	match game.boss_index:
 		0: draw_cinema()
-		1: draw_alley()
-		2: draw_machines()
-		3: draw_archive()
-		4: draw_final_room()
+		2: draw_archive()
+		3: draw_final_room()
+	if game.boss_index == game.FINAL_BOSS and game.state in ["letter_pickup", "aftermath", "letter"]:
+		rect(411, 73, 30, 41, Color("080a12"))
+		draw_rect(Rect2(411, 73, 30, 41), Color("716080"), false, 1)
+		rect(434, 94, 2, 3, Color("b08ecd"))
+		label("暗室", 416, 69, 7, Color("b3a0c1"))
 	wall_lamp(52, 65, Color(pal[3]))
 	wall_lamp(429, 65, Color(pal[3]))
 	label(game.Story.BOSSES[game.boss_index].place, 27, 250, 7, Color("5d646d"))
@@ -195,30 +266,119 @@ func plant(x: int, y: int) -> void:
 	rect(x + 1, y - 18, 9, 5, Color("5a8264"))
 	rect(x - 5, y - 28, 7, 9, Color("608b68"))
 
-func draw_alley() -> void:
-	for x in [103, 204, 305]:
-		rect(x, 49, 60, 39, Color("111e2b"))
-		for dx in [7, 21, 35, 49]: rect(x + dx, 52, 2, 33, Color("374e5a"))
-	rect(211, 57, 39, 17, Color("5a364f"))
-	label("雨 巷", 215, 69, 8, Color("d394b5"))
-	for i in range(12):
-		var x = 29 + fposmod(i * 31.7, 405)
-		var y = 110 + fposmod(i * 23.1, 108)
-		rect(x, y, 14 + i % 12, 2, Color("405866"))
-	for i in range(55):
-		var x = 21 + fposmod(i * 71.3 + game.clock * 7, 433)
-		var y = 43 + fposmod(i * 47.1 + game.clock * 111, 183)
-		draw_line(Vector2(x, y), Vector2(x - 2, y + 6), Color(0.46, 0.62, 0.7, 0.23), 1)
+func draw_beach() -> void:
+	rect(0, 0, 480, 270, Color("10222e"))
+	rect(18, 42, 444, 190, Color("d9c398"))
+	rect(18, 42, 444, 29, Color("b6d4d6"))
+	rect(18, 71, 444, 62, Color("428c9d"))
+	rect(18, 92, 444, 41, Color("55a6ad"))
+	rect(18, 116, 444, 22, Color("80bfc0"))
+	for i in range(25):
+		var x = 26 + fposmod(i * 63.0 + game.clock * 9, 416)
+		var y = 80 + (i % 4) * 13
+		rect(x, y, 8 + i % 11, 1, Color("acd9d2"))
+	for x in range(18, 462, 16):
+		var edge = 136 + int(sin(x * 0.06 + game.clock * 1.8) * 3)
+		rect(x, edge, mini(16, 462 - x), 5, Color("d5e7d5"))
+		rect(x, edge + 5, mini(16, 462 - x), 5, Color("bdcbb0"))
+	for i in range(48):
+		var x = 25 + fposmod(i * 73.0, 428)
+		var y = 159 + fposmod(i * 17.0, 66)
+		rect(x, y, 2 + i % 3, 1, Color("baa77e"))
+	rect(391, 61, 17, 8, Color("eee6be"))
+	rect(387, 64, 25, 3, Color("eee6be"))
+	rect(41, 170, 4, 39, Color("75654e"))
+	rect(43, 166, 6, 15, Color("5b826d"))
+	rect(35, 169, 6, 12, Color("71957a"))
+	rect(411, 205, 19, 4, Color("a38e70"))
+	rect(415, 201, 12, 4, Color("b7a284"))
+	label("海边 / THE QUIET SHORE", 27, 250, 7, Color("6a8c94"))
+	var scene = game.previous_state if game.state == "paused" else game.state
+	if scene in ["beach", "fishing", "fished"]:
+		var spot = game.FISHING_SPOT
+		draw_arc(spot, 12, 0, TAU, 16, Color("f6e5ae"), 1)
+		label("钓鱼点", spot.x - 11, spot.y + 20, 6, Color("786f59"))
+		if not game.has_fishing_rod:
+			var rod = game.FISHING_ROD
+			draw_line(rod + Vector2(-10, 4), rod + Vector2(12, -18), Color("77563e"), 2)
+			draw_line(rod + Vector2(12, -18), rod + Vector2(18, -2), Color("fff2d0"), 1)
+			rect(rod.x - 4, rod.y - 4, 4, 4, GOLD)
+			prompt(rod, "E 拿起鱼竿")
+		elif scene == "beach":
+			prompt(spot, "E 抛竿")
 
-func draw_machines() -> void:
-	for x in [94, 164, 234, 304]:
-		rect(x, 45, 49, 51, Color("191c29"))
-		rect(x + 4, 49, 41, 24, Color("38424b"))
-		for y in [53, 60, 67]:
-			rect(x + 8, y, 25, 2, Color("4d6970"))
-			rect(x + 37, y, 3, 2, Color("d9bf6e") if int(game.clock * 2 + x + y) % 3 else Color("be6479"))
-		rect(x + 5, 81, 38, 2, Color("464459"))
-	for x in range(55, 431, 18): rect(x, 219, 9, 4, Color("a28d51"))
+func draw_whale(pos: Vector2, flash = false, height = 0.0) -> void:
+	draw_ellipse_shadow(pos, 13 - height * 0.08)
+	pos.y -= height
+	var bob = int(sin(game.clock * 5) * 2)
+	var blue = Color("4d6bfe")
+	for y in range(WHALE.size()):
+		for x in range(WHALE[y].length()):
+			var pixel = WHALE[y][x]
+			if pixel != ".":
+				rect(pos.x + x - 20, pos.y + y - 34 + bob, 1, 1, Color("fff3d0") if flash else blue)
+
+func draw_fishing(scene: String) -> void:
+	if not game.has_fishing_rod:
+		return
+	var hand = game.player + Vector2(8, -13)
+	var tip = hand + Vector2(18, -29)
+	draw_line(hand, tip, Color("785740"), 2)
+	rect(hand.x - 2, hand.y - 3, 4, 5, GOLD)
+	if scene == "beach":
+		return
+	var hook = Vector2(292, 115 + sin(game.clock * 6) * 2)
+	if scene == "fished":
+		var progress = clampf(game.fishing_time / 0.8, 0, 1)
+		hook = Vector2(292, 115).lerp(game.boss - Vector2(0, 17), progress)
+		hook.y -= sin(progress * PI) * 42
+		draw_whale(hook + Vector2(0, 17))
+		label("DeepSeek !?", hook.x - 22, hook.y - 17, 7, Color("334b92"))
+	else:
+		draw_arc(hook + Vector2(0, 3), 10 + sin(game.clock * 5) * 3, 0, TAU, 20, Color("e1f0d5"), 1)
+		rect(hook.x - 2, hook.y - 5, 4, 5, RED if game.fishing_time >= 1.8 else Color("faf3da"))
+		if game.fishing_time >= 1.8:
+			prompt(game.player + Vector2(0, -9), "咬钩了！E 收竿")
+	draw_line(tip, hook, Color("fff4d7"), 1)
+
+func draw_route() -> void:
+	var pier = game.boss_index == 1
+	rect(0, 0, 480, 270, Color("10222e") if pier else Color("121b24"))
+	rect(18, 43, 444, 188, Color("377585") if pier else Color("263b3c"))
+	if pier:
+		for y in range(57, 225, 15):
+			for x in range(28, 455, 41): rect(x, y, 15, 1, Color("72a8aa"))
+		rect(25, 129, 430, 74, Color("826a51"))
+		for x in range(28, 452, 13): rect(x, 132, 11, 68, Color("a48c68"))
+		for y in [130, 199]:
+			rect(25, y, 430, 3, Color("d3b98a"))
+			for x in range(30, 450, 52): rect(x, y - 12, 4, 20, Color("5b5146"))
+	else:
+		rect(23, 128, 434, 96, Color("384c49"))
+		for x in range(25, 454, 27): rect(x, 131, 1, 92, Color("48615a"))
+		for x in [65, 171, 277]:
+			rect(x, 55, 56, 73, Color("192a2b"))
+			rect(x + 5, 60, 46, 64, Color("425953"))
+			label("0%d" % (1 + (x - 65) / 106), x + 17, 93, 12, Color("a5b39a"))
+		draw_parcel(Vector2(145, 197), false, "货物")
+		draw_parcel(Vector2(290, 202), false, "货物")
+	rect(387, 72, 64, 112, Color("1b2a2c"))
+	rect(394, 79, 50, 99, Color("68867a") if pier else Color("80625e"))
+	rect(433, 123, 3, 6, GOLD)
+	label("1006" if pier else "04", 403, 105, 12, GOLD)
+	label("货运档案室" if pier else "DAVID", 394, 67, 8, Color("c8b886"))
+	label("通行牌：1006 / 沿栈道进入档案室" if pier else "货单：高申的快递 / 04 号仓库 →", 38, 218, 8, Color("ddd0a8"))
+	label("海边 → 旧码头" if pier else "档案室 → 仓库走廊", 27, 250, 7, Color("7c9b99"))
+
+func draw_parcel(pos: Vector2, opened = false, recipient = "高申") -> void:
+	rect(pos.x - 12, pos.y - 15, 25, 17, Color("b79471"))
+	rect(pos.x - 10, pos.y - 13, 21, 13, Color("e0bf95"))
+	rect(pos.x - 2, pos.y - 15, 4, 17, Color("f6e3c1"))
+	label(recipient, pos.x - 10, pos.y - 3, 6, Color("745a47"))
+	if opened:
+		draw_colored_polygon(PackedVector2Array([pos + Vector2(-12, -15), pos + Vector2(-19, -23), pos + Vector2(13, -23), pos + Vector2(13, -15)]), Color("cda77e"))
+		rect(pos.x - 6, pos.y - 27, 13, 15, Color("fff5de"))
+		label("20", pos.x - 5, pos.y - 17, 7, Color("bc9165"))
 
 func draw_archive() -> void:
 	for x in [99, 146, 193, 286, 333, 380]:
@@ -231,6 +391,115 @@ func draw_archive() -> void:
 	rect(240, 70, 27, 2, Color("63796a"))
 	rect(391, 181, 37, 20, Color("31443e"))
 	for i in range(4): rect(395 + i * 6, 181 - i % 2 * 2, 5, 13, Color("a5a990"))
+	for x in [62, 420]:
+		rect(x, 46, 1, 14, GOLD)
+		rect(x - 7, 59, 15, 18, Color("c7474f"))
+		rect(x - 4, 61, 9, 14, Color("e6655a"))
+		rect(x - 7, 62, 15, 2, GOLD)
+		rect(x - 7, 72, 15, 2, GOLD)
+		rect(x - 1, 77, 3, 9, GOLD)
+
+func draw_red_packet(packet: Dictionary) -> void:
+	var p: Vector2 = packet.p
+	var remaining: float = packet.remaining
+	if remaining > 0:
+		draw_circle(p, 18, Color(0.9, 0.17, 0.22, 0.10))
+		draw_arc(p, 18, 0, TAU, 20, RED, 1)
+		draw_line(p - Vector2(4, 4), p + Vector2(4, 4), GOLD, 1)
+		draw_line(p + Vector2(-4, 4), p + Vector2(4, -4), GOLD, 1)
+		var height = minf(remaining * 75, 72)
+		rect(p.x - 5, p.y - height - 12, 10, 14, Color("8f303f"))
+		rect(p.x - 4, p.y - height - 11, 8, 12, Color("e45454"))
+		draw_line(Vector2(p.x - 4, p.y - height - 10), Vector2(p.x, p.y - height - 6), GOLD, 1)
+		draw_line(Vector2(p.x + 4, p.y - height - 10), Vector2(p.x, p.y - height - 6), GOLD, 1)
+		rect(p.x - 1, p.y - height - 5, 3, 3, GOLD)
+	else:
+		draw_arc(p, 18 + -remaining * 30, 0, TAU, 20, Color(0.95, 0.6, 0.35, maxf(0, 1 + remaining * 3)), 2)
+
+func draw_darkroom() -> void:
+	var bright = game.birthday_revealed
+	rect(0, 0, 480, 270, Color("fff6eb") if bright else Color("070a11"))
+	rect(18, 43, 444, 188, Color("f9ece5") if bright else Color("0c101a"))
+	rect(22, 95, 436, 133, Color("f1e9df") if bright else Color("111725"))
+	for y in range(99, 228, 18):
+		for x in range(25, 450, 25):
+			rect(x, y, 23, minf(16, 228 - y), Color("f7efe4") if bright else Color("151c2b"))
+	# The birthday scene is never drawn before the light puzzle is solved.
+	if not game.birthday_revealed:
+		rect(262, 43, 200, 187, Color("05070d"))
+		rect(256, 44, 4, 184, Color("191727"))
+	else:
+		draw_birthday_room()
+		if game.has_parcel:
+			draw_parcel(game.BIRTHDAY_PARCEL, game.parcel_opened)
+		for x in range(31, 246, 21):
+			draw_line(Vector2(x, 55), Vector2(x + 21, 58), Color("d6bab1"), 1)
+			draw_colored_polygon(PackedVector2Array([Vector2(x + 3, 56), Vector2(x + 15, 58), Vector2(x + 8, 68)]), [Color("efb5c2"), Color("b5dce3"), Color("bedbc1")][(x / 21) % 3])
+	var lamp = game.LIGHT_STAND
+	draw_circle(lamp - Vector2(0, 11), 30, Color(0.45, 0.25, 0.7, 0.05))
+	rect(lamp.x - 10, lamp.y - 2, 22, 7, Color("c8c4d9") if bright else Color("313046"))
+	if not game.has_special_light:
+		rect(lamp.x - 3, lamp.y - 15, 6, 13, Color("7f698b"))
+		rect(lamp.x - 4, lamp.y - 16, 8, 5, Color("bb91e4"))
+		label("特殊光源", lamp.x - 18, lamp.y - 24, 6, Color("b999d4"))
+	var table = game.LETTER_TABLE
+	rect(table.x - 19, table.y - 12, 38, 16, Color("dcc2c4") if bright else Color("3b3449"))
+	rect(table.x - 16, table.y + 4, 3, 7, Color("bba6b7") if bright else Color("292736"))
+	rect(table.x + 13, table.y + 4, 3, 7, Color("bba6b7") if bright else Color("292736"))
+	rect(table.x - 8, table.y - 12, 16, 9, Color("fff9e8") if bright else Color("a7a4aa"))
+	if not game.birthday_revealed:
+		label("把信放在这里", table.x - 24, table.y - 21, 7, Color("736c83"))
+
+func draw_birthday_room() -> void:
+	rect(264, 44, 196, 50, Color("e9f5f2"))
+	rect(264, 94, 196, 134, Color("fff2e4"))
+	for y in range(99, 229, 17):
+		rect(267, y, 190, 1, Color("efdfcf"))
+	# A large freestanding arch, built from three overlapping balloon rows.
+	var palette = [Color("f4b5c4"), Color("b5dce7"), Color("c1dec4"), Color("f7dfa4"), Color("d8c6e9")]
+	for x in [272, 448]:
+		rect(x - 10, 198, 21, 5, Color("deded2"))
+		rect(x - 7, 179, 15, 19, Color("fffdfa"))
+		rect(x - 7, 179, 15, 3, Color("b8dbd3"))
+	for band in range(3):
+		for i in range(25):
+			var angle = PI * i / 24.0
+			var x = 360 + (83 + band * 5) * cos(angle)
+			var y = 187 - (118 + band * 6) * sin(angle)
+			balloon(Vector2(x, y), 5 + (i + band) % 3, palette[(i + band * 2) % palette.size()])
+	label("HAPPY", 328, 100, 11, Color("b86f94"))
+	label("BIRTHDAY", 314, 115, 11, Color("b86f94"))
+	label("LINGZHI", 338, 130, 7, Color("829f9e"))
+	label("20", 337, 164, 37, Color("cea358"))
+	rect(315, 200, 94, 5, Color("fffdf8"))
+	rect(323, 205, 5, 13, Color("d8d5ca"))
+	rect(396, 205, 5, 13, Color("d8d5ca"))
+	rect(340, 181, 45, 18, Color("e8a7bc"))
+	rect(337, 178, 51, 7, Color("fffaf0"))
+	for x in range(340, 386, 9): rect(x, 183, 4, 6, Color("fffaf0"))
+	rect(342, 195, 41, 2, Color("ce8fa7"))
+	for x in [350, 373]:
+		rect(x, 168, 3, 10, Color("a5cfc9"))
+		rect(x, 163, 3, 5, Color("e5b458"))
+	for x in [290, 422]:
+		var color = palette[0 if x == 290 else 1]
+		rect(x - 7, 204, 18, 15, color)
+		rect(x - 9, 201, 22, 4, color.lightened(0.12))
+		rect(x, 201, 3, 18, Color("fff9e7"))
+		rect(x - 4, 197, 5, 4, Color("d3b582"))
+		rect(x + 3, 197, 5, 4, Color("d3b582"))
+	label("灵芝，20 岁生日快乐！", 292, 226, 9, Color("a2768a"))
+	for i in range(64):
+		var x = 29 + fposmod(i * 31.7 + game.clock * (3 if i % 2 else -3), 424)
+		var y = 54 + fposmod(i * 27.3 + game.clock * 19, 169)
+		rect(x, y, 2, 3 if i % 2 else 2, palette[i % palette.size()].darkened(0.05))
+
+func balloon(pos: Vector2, radius: int, color: Color) -> void:
+	rect(pos.x - radius + 2, pos.y - radius, radius * 2 - 4, radius * 2, color.darkened(0.08))
+	rect(pos.x - radius, pos.y - radius + 3, radius * 2, radius * 2 - 6, color.darkened(0.08))
+	rect(pos.x - radius + 2, pos.y - radius + 1, radius * 2 - 4, radius * 2 - 2, color)
+	rect(pos.x - radius + 1, pos.y - radius + 3, radius * 2 - 2, radius * 2 - 6, color)
+	rect(pos.x - radius + 3, pos.y - radius + 3, 2, 3, color.lightened(0.4))
 
 func draw_final_room() -> void:
 	rect(160, 43, 160, 48, Color("1a1e2b"))
@@ -242,7 +511,9 @@ func draw_final_room() -> void:
 	rect(189, 103, 106, 115, Color("573039"))
 	rect(193, 105, 98, 111, Color("64353b"))
 	for x in [194, 288]: rect(x, 105, 2, 111, Color("9a6b57"))
-	label("DAVID", 221, 83, 9, GOLD)
+	label("04 / DAVID", 213, 83, 9, GOLD)
+	if game.boss_hp > 0 and not game.has_parcel:
+		draw_parcel(Vector2(392, 197))
 	plant(113, 101)
 	plant(369, 101)
 
@@ -274,7 +545,7 @@ func draw_street() -> void:
 		rect(x - 13, 90, 29, 8, Color(0.85, 0.71, 0.41, 0.08))
 	label("医院 →", 340, 206, 10, Color("88b7ae"))
 	prompt(Vector2(424, 114), "E 进入")
-	label("鼻托掉落后，世界会变模糊。", 27, 250, 7, Color("5d727f"))
+	label("放映室 → 医院 → 海边旧码头", 27, 250, 7, Color("5d727f"))
 
 func draw_hospital() -> void:
 	rect(0, 0, 480, 270, Color("101c27"))
@@ -323,6 +594,14 @@ func draw_hospital() -> void:
 	label("检查结束后，从右下方出口离开。", 27, 250, 7, Color("6d888d"))
 
 func draw_tell() -> void:
+	if game.boss_index == 1 and game.boss_phase in ["windup", "airborne"]:
+		var target = game.boss_target
+		draw_circle(target, 26, Color(0.85, 0.2, 0.28, 0.2))
+		draw_arc(target, 26, 0, TAU, 28, RED, 2)
+		draw_line(target - Vector2(8, 8), target + Vector2(8, 8), GOLD, 1)
+		draw_line(target + Vector2(-8, 8), target + Vector2(8, -8), GOLD, 1)
+		label("!", target.x - 2, target.y - 31, 12, GOLD)
+		return
 	if game.boss_phase != "windup": return
 	var pos = game.boss
 	var alpha = 0.12 + (sin(game.clock * 23) + 1) * 0.06
@@ -340,12 +619,16 @@ func draw_tell() -> void:
 			var perpendicular = game.boss_dir.orthogonal() * 13
 			draw_colored_polygon(PackedVector2Array([pos + perpendicular, pos - perpendicular, pos - perpendicular + game.boss_dir * 190, pos + perpendicular + game.boss_dir * 190]), Color(0.8, 0.2, 0.25, alpha))
 			draw_line(pos, pos + game.boss_dir * 190, RED, 1)
+		4:
+			draw_arc(pos - Vector2(0, 10), 28, 0, TAU, 20, GOLD, 1)
 	label("!", pos.x - 2, pos.y - 33, 12, GOLD)
 
 func draw_corpse() -> void:
+	if game.boss_index == 1:
+		return
 	rect(game.boss.x - 13, game.boss.y - 5, 28, 9, Color(game.Story.BOSSES[game.boss_index].color).darkened(0.2))
 	rect(game.boss.x + 12, game.boss.y - 3, 7, 7, Color("b8907e"))
-	if game.boss_index == 3:
+	if game.boss_index == game.COW_BOSS:
 		rect(game.boss.x + 12, game.boss.y - 3, 7, 7, Color("d7ded6"))
 
 func draw_pad_drop() -> void:
@@ -363,7 +646,8 @@ func draw_letter_drop() -> void:
 	rect(p.x - 7, p.y - 4, 14, 9, Color("e7debf"))
 	draw_line(p - Vector2(7, 4), p + Vector2(0, 1), Color("aa8b68"), 1)
 	draw_line(p + Vector2(7, -4), p + Vector2(0, 1), Color("aa8b68"), 1)
-	prompt(game.letter_pos, "E 拾取信件")
+	draw_parcel(game.letter_pos + Vector2(20, 4))
+	prompt(game.letter_pos, "E 取回快递和信")
 
 func prompt(pos: Vector2, message: String) -> void:
 	if game.player.distance_to(pos) > 45: return
@@ -389,7 +673,7 @@ func draw_title() -> void:
 	draw_actor_portrait()
 	draw_set_transform(Vector2.ZERO)
 	rect(318, 193, 113, 2, Color("bd4f55"))
-	label("01 — 05", 350, 240, 8, Color("667984"))
+	label("01 — 04", 350, 240, 8, Color("667984"))
 
 func draw_actor_portrait() -> void:
 	var colors = {"h": Color("24222d"), "s": Color("d5a58b"), "g": Color("7cc5c5"), "r": RED, "y": GOLD, "k": Color("262b37")}

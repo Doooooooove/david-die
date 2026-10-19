@@ -1,76 +1,67 @@
-# DAVID DIE · 第一版可玩原型
+# DAVID DIE · v0.4
 
-玩家是灵芝。五场 Boss 战之间，串起一次腹痛就医、一副需要自己修好的眼镜，以及最终从 David 身上掉落的信。
+灵芝要帮高申追回被 David 偷走的快递。四场 Boss 战串起放映室、医院、海边、旧码头和仓库，最后通向一封需要特殊光源才能读出的信，以及 20 岁生日场景和快递开箱。
 
-[下载 Windows 版](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-Windows.zip) · [下载 Mac 版](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-macOS.zip) · [完整源码](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-source.zip)
+当前 main 为 v0.4 源码。公开 Release 附件仍为 v0.1.0 历史原型，尚未替换为新版。
 
 ![David Die 标题画面](title.png)
 
-## 开始试玩
+## 运行当前版本
 
-- **Windows 10/11，64 位：** 解压 `DavidDie-Windows.zip`，双击 `DavidDie.exe`。不需要安装 Godot。
-- **Mac：** 解压 `DavidDie-macOS.zip`，双击 `David Die.app`。包含 Apple Silicon、Intel 两种架构，不需要安装 Godot。
-- Mac 应用使用临时签名，尚未经过 Apple 公证；这是本地试玩版本。通过网络分享后，系统可能要求在“系统设置 → 隐私与安全性”中确认打开。公开发行前需完成正式签名与公证。
+用 **Godot 4.6.2 标准版**导入 `source/project.godot`，然后运行工程。没有插件、账号或联网依赖。导出 Windows / macOS 前，在 Godot 中安装同版本的官方导出模板。
+
+历史试玩包（v0.1.0，内容早于当前源码）：[Windows](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-Windows.zip) · [Mac](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-macOS.zip) · [v0.1 源码](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-source.zip)。解压后可直接运行，无需安装 Godot。Mac 包支持 Apple Silicon 和 Intel，采用临时签名，未经 Apple 公证。
+
+## 玩法和流程
+
+- 看电影的人正在看《Kill Bill》。打败他后问出快递去向；灵芝突然腹痛，先去医院。
+- 去医院途中眼镜鼻托掉落，场景模糊。找回鼻托后需要用鼠标拖动安装，再找医生、做 CT。
+- 到海边拿鱼竿，在钓鱼点抛竿，咬钩后收竿，钓出 DeepSeek 小鲸鱼。它会飞起砸落，红圈提前预告落点。
+- 击败鲸鱼取得通行牌，沿可走动的栈道进入 1006 的档案室。奶牛 1006 使用红包雨和红色冲撞，战败后说出 David 的位置。
+- 沿仓库走廊找到 04 号仓库，打败最终 Boss David，取回高申的快递与信。
+- 进入暗室，取得特殊光源并照亮信纸。旁边的浅色气球大拱门、蛋糕和生日布置亮起；走进拱门，亲手拆开快递。
+
+## 战斗
+
+按住攻击可打出三连击，第三击是范围和伤害更大的重斩。Boss 收招时反击伤害更高，伤害飘字和连击格反馈命中。
+
+在闪避过程中躲掉实际命中，会获得一次短暂的反击加成，并缩短下次闪避的等待时间。挥空不会立即消耗反击。闪避支持短暂的提前输入。
+
+每场战斗可用一次补给，恢复最多 35 体力，满血时不会浪费。战败直接从当前 Boss 重试，恢复体力与补给，无需重复钓鱼或对白。每进入一场 Boss 战会保存章节；标题页按 E 可继续最近章节，Enter 开始新游戏。
+
+Boss 半血后进入第二阶段：放映室增加冲撞，鲸鱼二连砸落并为每次砸落重新预警，1006 的红包雨更密，David 的攻击序列增加冲撞。血条中点和 II 标记提示阶段变化。
 
 ## 操作
 
 | 操作 | 按键 |
 | --- | --- |
 | 移动 | WASD / 方向键 |
-| 攻击 | J / 鼠标左键，可按住 |
-| 闪避 | 空格 / K |
-| 互动、推进对白、读信 | E |
-| 开始、重试、推进对白 | Enter |
-| 暂停、继续 | Esc |
-| 静音 | M |
-| 全屏 | F11 |
-| 安装鼻托 | 用鼠标拖动鼻托到中央金色槽，松开 |
+| 三连击 | J / 鼠标左键，可按住 |
+| 战斗闪避 | 空格 / K |
+| 探索快走 | 按住空格 / K |
+| 每战一次补给 | Q |
+| 互动、钓鱼、对白、开门、开快递 | E |
+| 开始、重试、对白、结局返回 | Enter |
+| 暂停 / 继续 | Esc |
+| 特殊光源 | F 开关，或点击信纸开灯；鼠标移动光斑 |
+| 安装鼻托 | 鼠标拖动鼻托到中央金色槽，松开 |
+| 静音 / 全屏 | M / F11 |
 
-近距离攻击会自动朝向 Boss。红色图案是攻击预警，闪避有短暂无敌时间；对手收招时反击伤害更高。战败后从当前 Boss 重试。每进入一场 Boss 战会自动保存章节；重新启动后，标题页的 E 可继续最近章节，Enter 开始新游戏。
+## 验证和工程
 
-## 已实现的流程
-
-1. 第一位 Boss 正在看《Kill Bill》，灵芝与他交战。
-2. 灵芝战后腹痛，沿街前往医院。
-3. 途中眼镜鼻托掉落，场景变模糊；靠近闪光按 E 拾起，亲手拖动安装。界面文字保持清楚。
-4. 进入医院，先找医生，再上 CT 检查床。检查完成后从右下出口离开。
-5. 第二位 Boss 使用扇形弹道，第三位使用扩散冲击波。
-6. 第四位 Boss 是奶牛 **1006**，使用冲锋，战败后通过对白给出寻找 David 的线索，不掉信。
-7. 第五位、最终 Boss 是 **David**，组合使用前面的招式。战败后掉落信件，玩家靠近按 E 阅读，随后进入结尾。
-
-## 留给你确定的内容
-
-- 第二、第三位 Boss 的姓名、身份和剧情。当前使用“第二位对手”“第三位对手”占位，战斗可以正常游玩。
-- David 掉落的信件正文。阅读界面明确标注内容待定。
-- 当前全部对白和人物造型都是可修改的原型；1006 指向最后房间的线索也是临时文本。
-
-## 工程
-
-`source/project.godot` 可以用 **Godot 4.6.2 标准版**直接导入。没有插件、账号或联网依赖。完整源码也放在 `DavidDie-source.zip`。
-
-- `story.gd`：Boss 名字、血量、对白、最终信件。
-- `game.gd`：移动、战斗、流程、交互、界面和存档。
-- `world.gd`：像素角色、场景与动画。
-- `tests/run.gd`：玩法和流程自动检查。
-- `export_presets.cfg`：Windows、macOS 导出配置。重新打包前，在 Godot 中安装同版本官方导出模板即可。
-
-自动检查命令（将 `godot` 替换为你的 Godot 可执行文件）：
+94 项自动检查通过，覆盖完整剧情、四场战斗、鼻托拖动、医院 CT、钓鱼、飞砸、红包雨、三连击、反击、补给、第二阶段、死亡重试、信件解密与生日开箱。Mac 已实际验证攻击和补给，暂停键的实机验证尚待确认；Windows 和 Intel Mac 尚未实机测试。
 
 ```sh
 godot --headless --path source --script res://tests/run.gd
 ```
 
-## 验证和边界
+`story.gd` 保存对白与 Boss 数据；`game.gd` 负责战斗、流程、交互、界面和存档；`world.gd` 绘制像素角色与场景；`tests/run.gd` 包含自动检查。
 
-- 34 项自动检查通过，覆盖攻击冷却、闪避无敌、五场战斗可胜、鼻托真实鼠标拖动事件、医院 CT 门槛、Boss 顺序、1006 对白、最终信件和死亡重试。
-- 标题、战斗、鼻托界面、医院、CT、1006、David、信件已实际渲染检查。
-- Mac 成品已在 Apple Silicon 机器上脱离编辑器启动；应用临时签名校验通过。Intel 架构包含在应用中，未在 Intel Mac 实机测试。
-- Windows 64 位可执行文件已成功导出；当前没有 Windows 实机环境，尚未实机试玩。
-- 这是供你确认玩法方向的小型原型：键鼠操作、固定场景、简短流程，没有联机、手柄或额外关卡。
+实际礼物和最终信件长文仍待确定。当前开箱展示“20”生日卡与柔光。
 
-## 素材和许可
+## 素材与许可
 
-像素场景、角色和合成声音均为本项目制作。电视使用《Kill Bill》标题图案，没有嵌入电影视频或电影原声。
+场景、其他像素角色和合成声音为本项目制作。电视只使用《Kill Bill》标题图案，没有嵌入电影视频或原声。DeepSeek 鲸鱼像素轮廓缩制自官方标志，来源与权属说明见 [DEEPSEEK-NOTICE.txt](source/assets/DEEPSEEK-NOTICE.txt)。本项目未接入 DeepSeek 服务，也不代表官方。
 
-- 引擎：[Godot 4.6.2](https://godotengine.org/)，MIT 许可，完整文本见 `GODOT-LICENSE.txt`。
-- 中文字体：[Noto Sans SC](https://github.com/google/fonts/tree/main/ofl/notosanssc)，SIL Open Font License，完整文本见 `FONT-LICENSE.txt` 和 `source/assets/OFL.txt`。
+- 引擎：[Godot](https://godotengine.org/)，MIT 许可，见 [GODOT-LICENSE.txt](GODOT-LICENSE.txt)。
+- 中文字体：[Noto Sans SC](https://github.com/google/fonts/tree/main/ofl/notosanssc)，SIL Open Font License，见 [FONT-LICENSE.txt](FONT-LICENSE.txt) 和 [OFL.txt](source/assets/OFL.txt)。
