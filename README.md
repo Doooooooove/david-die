@@ -2,6 +2,10 @@
 
 玩家是灵芝。五场 Boss 战之间，串起一次腹痛就医、一副需要自己修好的眼镜，以及最终从 David 身上掉落的信。
 
+[下载 Windows 版](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-Windows.zip) · [下载 Mac 版](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-macOS.zip) · [完整源码](https://github.com/Doooooooove/david-die/releases/download/v0.1.0/DavidDie-source.zip)
+
+![David Die 标题画面](title.png)
+
 ## 开始试玩
 
 - **Windows 10/11，64 位：** 解压 `DavidDie-Windows.zip`，双击 `DavidDie.exe`。不需要安装 Godot。
