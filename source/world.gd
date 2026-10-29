@@ -85,6 +85,8 @@ func _draw() -> void:
 		draw_darkroom()
 	else:
 		draw_arena()
+	if scene in ["fight", "dead"] or (scene == "dialogue" and game.dialogue_next == "fight"):
+		draw_mechanism()
 	for stain in game.stains:
 		draw_rect(Rect2(stain.p, stain.size), Color("77333d"))
 	for wave in game.waves:
@@ -114,8 +116,11 @@ func _draw() -> void:
 	else:
 		if not (game.invulnerable > 0 and int(game.clock * 18) % 2 == 0):
 			draw_actor(game.player, "player", "e5c365", game.move_dir.length() > 0, game.hurt_flash > 0, game.facing.x < 0)
-	if scene in ["beach", "fishing", "fished"]:
+	if scene in ["beach", "fishing", "reeling", "fished"]:
 		draw_fishing(scene)
+	if scene == "fight" and game.reflect_time > 0:
+		draw_arc(game.player - Vector2(0, 10), 27, -PI * 0.8, PI * 0.8, 32, Color("93e8dc"), 2)
+		label("退件 %.1f" % game.reflect_time, game.player.x - 16, game.player.y - 43, 7, Color("b5f3e6"))
 	if game.slash_time > 0 and scene == "fight":
 		var angle = game.facing.angle()
 		var center = game.player - Vector2(0, 10)
@@ -123,8 +128,8 @@ func _draw() -> void:
 		draw_arc(center, radius, angle - 0.95, angle + 0.95, 12, GOLD, 6 if game.combo_step == 3 else 4)
 		draw_arc(center, radius + 5, angle - 0.75, angle + 0.75, 12, Color("f1edc7"), 2)
 	for shot in game.projectiles:
-		draw_line(shot.p, shot.p - shot.v.normalized() * 8, Color("b04b54"), 3)
-		rect(shot.p.x - 2, shot.p.y - 2, 4, 4, GOLD)
+		draw_line(shot.p, shot.p - shot.v.normalized() * 8, Color("83e2d1") if shot.get("friendly", false) else Color("b04b54"), 3)
+		rect(shot.p.x - 2, shot.p.y - 2, 4, 4, Color("ddfff4") if shot.get("friendly", false) else GOLD)
 	for particle in game.particles:
 		if particle.has("text"):
 			label(particle.text, particle.p.x + 1, particle.p.y + 1, 9, INK)
@@ -135,6 +140,10 @@ func _draw() -> void:
 			rect(particle.p.x, particle.p.y, 2, 2, particle.color)
 	if scene == "route":
 		prompt(game.ROUTE_EXIT, "E 进入档案室" if game.boss_index == 1 else "E 进入 04 号仓库")
+		if not game.sidequest_done and game.player.distance_to(game.SUPPORT_SPOT) < 42:
+			prompt(game.SUPPORT_SPOT, "E 调频求支援" if game.boss_index == 1 else "E 查收支援箱")
+	if scene == "fight" and not game.mechanism_used and game.player.distance_to(game.Story.MECHANISMS[game.boss_index].pos) < 42:
+		prompt(game.Story.MECHANISMS[game.boss_index].pos, "E " + game.Story.MECHANISMS[game.boss_index].name)
 	if scene == "birthday" and not game.parcel_opened:
 		prompt(game.BIRTHDAY_PARCEL, "E 打开快递")
 	if scene == "letter_pickup":
@@ -173,7 +182,7 @@ func draw_actor(pos: Vector2, kind: String, coat: String, walking = false, flash
 			var leg_offset = step if y > rows.size() - 6 and x < width / 2 else 0
 			rect(px - width / 2, y - rows.size() - leg_offset, 1, 1, Color("f2eacc") if flash else colors[pixel])
 	var scene = game.previous_state if game.state == "paused" else game.state
-	if kind == "player" and scene not in ["ct", "beach", "fishing", "fished", "darkroom", "illuminate", "birthday_reveal", "birthday", "parcel_opening", "ending"]:
+	if kind == "player" and scene not in ["ct", "beach", "fishing", "reeling", "fished", "darkroom", "illuminate", "birthday_reveal", "birthday", "parcel_opening", "ending"]:
 		var side = -1 if flip else 1
 		rect(side * 8, -15, 2, 13, Color("cbd8d3"))
 		rect(side * 8 - 2, -7, 6, 2, GOLD)
@@ -187,6 +196,9 @@ func draw_ellipse_shadow(pos: Vector2, width: float) -> void:
 func draw_arena() -> void:
 	if game.boss_index == 1:
 		draw_beach()
+		var scene = game.previous_state if game.state == "paused" else game.state
+		if scene not in ["beach", "fishing", "reeling", "fished"]:
+			draw_radio_bridge()
 		return
 	var palettes = [
 		["211f27", "302c32", "3b3034", "876349"],
@@ -230,6 +242,27 @@ func wall_lamp(x: float, y: float, color: Color) -> void:
 	rect(x - 5, y - 6, 11, 17, Color(color, 0.13))
 	rect(x - 3, y - 3, 7, 9, color)
 	rect(x - 2, y - 2, 5, 7, color.lightened(0.3))
+
+func draw_mechanism() -> void:
+	var p: Vector2 = game.Story.MECHANISMS[game.boss_index].pos
+	var color = Color("52666a") if game.mechanism_used else Color("8ed9c7")
+	if game.boss_index == 1:
+		draw_radio(p - Vector2(14, 18), true)
+		if game.lure_armed:
+			draw_arc(p - Vector2(0, 10), 23 + sin(game.clock * 5) * 3, -PI, 0, 16, color, 1)
+	else:
+		rect(p.x - 12, p.y - 26, 24, 25, Color("30454c"))
+		rect(p.x - 9, p.y - 23, 18, 13, color)
+		rect(p.x - 8, p.y - 8, 4, 3, GOLD)
+		rect(p.x + 4, p.y - 8, 4, 3, color)
+		if game.boss_index == 0:
+			for x in [-4, 2]: rect(p.x + x, p.y - 21, 3, 9, Color("30454c"))
+		elif game.boss_index == game.COW_BOSS:
+			rect(p.x - 5, p.y - 21, 10, 9, RED)
+			rect(p.x - 4, p.y - 17, 8, 2, GOLD)
+		else:
+			draw_line(p + Vector2(-6, -21), p + Vector2(6, -13), Color("f4fff5"), 2)
+	label("已用" if game.mechanism_used else "E 机关", p.x - 12, p.y + 10, 6, color)
 
 func draw_cinema() -> void:
 	rect(176, 43, 132, 53, Color("131a23"))
@@ -307,6 +340,47 @@ func draw_beach() -> void:
 		elif scene == "beach":
 			prompt(spot, "E 抛竿")
 
+func draw_radio_bridge() -> void:
+	var lava: Rect2 = game.WHALE_LAVA
+	var bridge: Rect2 = game.RADIO_BRIDGE
+	# The orange channel crosses the whole combat floor; only the radios are safe.
+	rect(lava.position.x - 7, lava.position.y, lava.size.x + 14, lava.size.y, Color("73504c"))
+	draw_rect(lava, Color("b93432"))
+	for row in range(15):
+		var y = lava.position.y + row * 6
+		var shift = int(sin(game.clock * 1.6 + row * 0.9) * 6)
+		rect(lava.position.x + 5 + abs(shift), y, lava.size.x - 10 - abs(shift) * 2, 3, Color("ec6338") if row % 3 else Color("ffad46"))
+	for i in range(14):
+		var x = lava.position.x + 7 + fposmod(i * 31.0, lava.size.x - 14)
+		var y = lava.end.y - fposmod(i * 19.0 + game.clock * 12, lava.size.y)
+		rect(x, y, 2, 2, Color("ffd279"))
+	for x in [lava.position.x - 7, lava.end.x]:
+		for y in range(144, 232, 11):
+			rect(x, y, 7, 8, Color("4f454c"))
+	# Four columns of two radios form a continuous, visibly wide bridge deck.
+	draw_rect(bridge.grow(2), Color("2b2835"))
+	for row in range(2):
+		for column in range(4):
+			draw_radio(bridge.position + Vector2(column * 28, row * 18), (column + row) % 2 == 0)
+	label("FM 100.6 / 收音机桥", 305, 222, 7, Color("775944"))
+
+func draw_radio(pos: Vector2, mint: bool) -> void:
+	var casing = Color("9ac8bd") if mint else Color("e5bc85")
+	# Raised handle, speaker grille, tuning scale, two knobs and an aerial: 📻.
+	draw_line(pos + Vector2(24, 5), pos + Vector2(27, 0), Color("dbe5dc"), 1)
+	rect(pos.x + 5, pos.y + 1, 13, 4, Color("343946"))
+	rect(pos.x + 7, pos.y + 2, 9, 2, Color("b9c9c0"))
+	rect(pos.x, pos.y + 5, 28, 13, casing.darkened(0.3))
+	rect(pos.x + 1, pos.y + 5, 26, 11, casing)
+	rect(pos.x + 3, pos.y + 7, 9, 7, Color("343d48"))
+	for y in range(8, 14, 2):
+		rect(pos.x + 4, pos.y + y, 7, 1, Color("73838a"))
+	rect(pos.x + 15, pos.y + 7, 9, 3, Color("374e54"))
+	rect(pos.x + 16, pos.y + 8, 7, 1, Color("e3ebc0"))
+	rect(pos.x + 20, pos.y + 7, 1, 3, Color("d2524e"))
+	for x in [17, 23]:
+		rect(pos.x + x, pos.y + 12, 3, 3, Color("343d48"))
+
 func draw_whale(pos: Vector2, flash = false, height = 0.0) -> void:
 	draw_ellipse_shadow(pos, 13 - height * 0.08)
 	pos.y -= height
@@ -369,6 +443,14 @@ func draw_route() -> void:
 	label("货运档案室" if pier else "DAVID", 394, 67, 8, Color("c8b886"))
 	label("通行牌：1006 / 沿栈道进入档案室" if pier else "货单：高申的快递 / 04 号仓库 →", 38, 218, 8, Color("ddd0a8"))
 	label("海边 → 旧码头" if pier else "档案室 → 仓库走廊", 27, 250, 7, Color("7c9b99"))
+	var support: Vector2 = game.SUPPORT_SPOT
+	rect(support.x - 23, support.y - 6, 46, 7, Color("51666a"))
+	if pier:
+		draw_radio(support - Vector2(14, 25), true)
+	else:
+		draw_parcel(support - Vector2(0, 7), false, "支援")
+	if game.sidequest_done or game.player.distance_to(support) >= 42:
+		label("支援已领取" if game.sidequest_done else ("FM 100.6 / 高申在线" if pier else "可选任务 / 查收支援"), support.x - 36, support.y - 34, 7, Color("d1efcd"))
 
 func draw_parcel(pos: Vector2, opened = false, recipient = "高申") -> void:
 	rect(pos.x - 12, pos.y - 15, 25, 17, Color("b79471"))
@@ -377,8 +459,22 @@ func draw_parcel(pos: Vector2, opened = false, recipient = "高申") -> void:
 	label(recipient, pos.x - 10, pos.y - 3, 6, Color("745a47"))
 	if opened:
 		draw_colored_polygon(PackedVector2Array([pos + Vector2(-12, -15), pos + Vector2(-19, -23), pos + Vector2(13, -23), pos + Vector2(13, -15)]), Color("cda77e"))
-		rect(pos.x - 6, pos.y - 27, 13, 15, Color("fff5de"))
-		label("20", pos.x - 5, pos.y - 17, 7, Color("bc9165"))
+		paint_perfume(self, pos + Vector2(0, -12), 0.7)
+
+static func paint_perfume(c: Node2D, origin: Vector2, scale: float) -> void:
+	# Shared pixel bottle for the parcel close-up and the little gift on the table.
+	var pieces = [
+		[Rect2(-7, -34, 14, 7), "b6d9d3"], [Rect2(-6, -33, 12, 4), "e8f6ed"],
+		[Rect2(-4, -27, 8, 4), "c9ad77"], [Rect2(-5, -23, 10, 2), "6eaaa8"],
+		[Rect2(-10, -21, 20, 19), "77b8b7"], [Rect2(-11, -18, 22, 14), "77b8b7"],
+		[Rect2(-9, -20, 18, 17), "e0f4ee"], [Rect2(-8, -12, 16, 8), "a6d9d0"],
+		[Rect2(-7, -19, 2, 13), "fbfff9"], [Rect2(7, -17, 1, 11), "f5fffa"],
+		[Rect2(-6, -16, 12, 8), "fffaf0"], [Rect2(-4, -14, 8, 1), "739c98"],
+		[Rect2(-3, -12, 6, 1), "c4ae81"], [Rect2(-8, -3, 16, 2), "bde5dd"]
+	]
+	for piece in pieces:
+		var shape: Rect2 = piece[0]
+		c.draw_rect(Rect2(origin + shape.position * scale, shape.size * scale), Color(piece[1]))
 
 func draw_archive() -> void:
 	for x in [99, 146, 193, 286, 333, 380]:
@@ -597,7 +693,10 @@ func draw_tell() -> void:
 	if game.boss_index == 1 and game.boss_phase in ["windup", "airborne"]:
 		var target = game.boss_target
 		draw_circle(target, 26, Color(0.85, 0.2, 0.28, 0.2))
+		draw_arc(target, 27, 0, TAU, 28, INK, 4)
 		draw_arc(target, 26, 0, TAU, 28, RED, 2)
+		if game.boss_phase == "airborne":
+			draw_arc(target, 26 + clampf(game.boss_timer, 0, 1) * 20, 0, TAU, 28, Color("fff0c2"), 1)
 		draw_line(target - Vector2(8, 8), target + Vector2(8, 8), GOLD, 1)
 		draw_line(target + Vector2(-8, 8), target + Vector2(8, -8), GOLD, 1)
 		label("!", target.x - 2, target.y - 31, 12, GOLD)
